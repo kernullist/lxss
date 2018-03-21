@@ -1,0 +1,38 @@
+$$ Define helper aliases for easy maintenance of the structure offsets
+.block { aS G_HeaderSize         @@masm(@$ptrsize)                                                 }
+.block { aS G_InstanceListOffset (${G_HeaderSize})                                                 }
+
+$$ Reset registers we use
+r @$t0 = 0
+r @$t1 = 0
+r @$t2 = 0
+
+.block
+{
+    $$ Set the root global pointer
+    .catch { r @$t0 = lxcore!LxGlobal }
+	
+	$$ Detect systems with no symbols
+	.if (@$t0 == 0)
+	{
+	    $$ Error out for now
+		.printf "This script cannot function without LxGlobal symbols"
+		.leave
+	}
+
+    $$ Print information on the LX_GLOBAL_DATA structure
+    .printf /D "<b><u>Lx Global Data 0x%P\n\n</u></b>", @$t0
+    .printf "NTC: %lx (0x15c1 expected), Size: %lx bytes\n", wo(@$t0), wo(@$t0 + 2)
+
+    $$ Loop the list of sessions inside of this instance
+    r? @$t1 = (nt!_LIST_ENTRY*)(@$t0 + ${G_InstanceListOffset})
+    .for (r? @$t2 = @$t1->Flink; @$t2 != @$t1; r? @$t2 = @$t2->Flink)
+    {
+        $$ Dump each LX_SESSION in the list
+        .push /r /q
+        $$>a< c:\lx\lx-instance.wds @$t2
+        .pop /r /q
+    }
+}
+
+ad *
